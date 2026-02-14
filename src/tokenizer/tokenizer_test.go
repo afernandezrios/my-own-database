@@ -1,4 +1,4 @@
-package main
+package tokenizer
 
 import (
     "testing"
@@ -14,6 +14,17 @@ func TestTokenize_containsSelectToken_selectTokenCreated(t *testing.T) {
 
 	// Assert
 	assertToken(t, result[0], SELECT, "select")
+}
+
+func TestTokenize_containsInsertToken_insertTokenCreated(t *testing.T) {
+	// Arrange
+	statement:= "INSERT INTO users VALUES (1, 'TIM')"
+
+	// Act
+	result:= Tokenize(statement)
+
+	// Assert
+	assertToken(t, result[0], INSERT, "insert")
 }
 
 func TestTokenize_containsFromToken_fromTokenCreated(t *testing.T) {

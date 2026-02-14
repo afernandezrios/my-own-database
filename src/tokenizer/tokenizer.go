@@ -1,4 +1,4 @@
-package main
+package tokenizer
 
 import (
 	"strings"
@@ -8,9 +8,11 @@ type TokenType int
 
 const (
 	SELECT TokenType = iota
+	INSERT
 	IDENT
 	FROM
 	SYMBOL
+	EOF
 )
 
 type Token struct {
@@ -20,6 +22,7 @@ type Token struct {
 
 var tokenRegistry = map[string]Token{
 	"select": {Type: SELECT, Value: "select"},
+	"insert": {Type: INSERT, Value: "insert"},
 	"from":   {Type: FROM, Value: "from"},
 	"*":      {Type: SYMBOL, Value: "*"},
 }
@@ -33,6 +36,7 @@ func Tokenize(statement string) []Token {
 		tokens[i] = toToken(word)
 	}
 
+	tokens = append(tokens, Token{Type: EOF})
 	return tokens
 }
 
