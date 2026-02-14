@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func StartREPL_unrecognizedCommand_printsError(t *testing.T) {
+func TestStartREPL_unrecognizedCommand_printsError(t *testing.T) {
 	// Arrange
 	input := strings.NewReader("hello\nexit\n")
 	var output bytes.Buffer
@@ -23,7 +23,7 @@ func StartREPL_unrecognizedCommand_printsError(t *testing.T) {
 	}
 }
 
-func StartREPL_exitCommand_closeProgramWithByeText(t *testing.T) {
+func TestStartREPL_exitCommand_closeProgramWithByeText(t *testing.T) {
 	// Arrange
 	input := strings.NewReader("exit")
 	var output bytes.Buffer
