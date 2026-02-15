@@ -5,7 +5,7 @@ import (
     "github.com/stretchr/testify/assert"
 )
 
-func TestTokenize_containsSelectToken_selectTokenCreated(t *testing.T) {
+func TestTokenize_containsSelectStatement_tokensCreated(t *testing.T) {
 	// Arrange
 	statement:= "SELECT id FROM users"
 
@@ -13,41 +13,30 @@ func TestTokenize_containsSelectToken_selectTokenCreated(t *testing.T) {
 	result:= Tokenize(statement)
 
 	// Assert
+	assert.Len(t, result, 5)
 	assertToken(t, result[0], SELECT, "select")
+	assertToken(t, result[1], IDENT, "id")
+	assertToken(t, result[2], FROM, "from")
+	assertToken(t, result[3], IDENT, "users")
+	assertToken(t, result[4], EOF, "")
 }
 
-func TestTokenize_containsInsertToken_insertTokenCreated(t *testing.T) {
+func TestTokenize_containsInsertTokenWithNumbersAndStrings_tokensCreated(t *testing.T) {
 	// Arrange
-	statement:= "INSERT INTO users VALUES (1, 'TIM')"
+	statement:= "INSERT INTO users VALUES (1, \"TIM\")"
 
 	// Act
 	result:= Tokenize(statement)
 
 	// Assert
 	assertToken(t, result[0], INSERT, "insert")
-}
-
-func TestTokenize_containsFromToken_fromTokenCreated(t *testing.T) {
-	// Arrange
-	statement:= "SELECT id FROM users"
-
-	// Act
-	result:= Tokenize(statement)
-
-	// Assert
-	assertToken(t, result[2], FROM, "from")
-}
-
-func TestTokenize_containsIdentifiers_identifiersTokenCreated(t *testing.T) {
-	// Arrange
-	statement:= "SELECT id FROM users"
-
-	// Act
-	result:= Tokenize(statement)
-
-	// Assert
-	assertToken(t, result[1], IDENT, "id")
-	assertToken(t, result[3], IDENT, "users")
+	assertToken(t, result[0], INTO, "into")
+	assertToken(t, result[0], IDENT, "users")
+	assertToken(t, result[0], VALUES, "values")
+	assertToken(t, result[0], LPAREN, "1")
+	assertToken(t, result[0], NUMBER, "1")
+	assertToken(t, result[0], STRING, "TIM")
+	assertToken(t, result[0], RPAREN, "TIM")
 }
 
 func TestTokenize_containsSymbol_symbolTokenCreated(t *testing.T) {

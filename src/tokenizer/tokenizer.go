@@ -2,6 +2,7 @@ package tokenizer
 
 import (
 	"strings"
+	"unicode"
 )
 
 type TokenType int
@@ -9,6 +10,13 @@ type TokenType int
 const (
 	SELECT TokenType = iota
 	INSERT
+	INTO
+	VALUES
+	LPAREN
+	RPAREN
+	COMMA
+	STRING
+	NUMBER
 	IDENT
 	FROM
 	SYMBOL
@@ -20,33 +28,73 @@ type Token struct {
 	Value string
 }
 
-var tokenRegistry = map[string]Token{
-	"select": {Type: SELECT, Value: "select"},
-	"insert": {Type: INSERT, Value: "insert"},
-	"from":   {Type: FROM, Value: "from"},
-	"*":      {Type: SYMBOL, Value: "*"},
+var keywordsRegistry = map[string]Token{
+	"select": {Type: SELECT},
+	"insert": {Type: INSERT},
+	"into":   {Type: INTO},
+	"values": {Type: VALUES},
+	"from":   {Type: FROM},
+	"*":      {Type: SYMBOL},
 }
 
 func Tokenize(statement string) []Token {
-	words := strings.Fields(statement)
+	var tokens []Token
+	runes := []rune(statement)
+	i := 0
 
-	tokens := make([]Token, len(words))
+	for i < len(runes) {
+		ch := runes[i]
 
-	for i, word := range words {
-		tokens[i] = toToken(word)
+		switch {
+		case unicode.IsSpace(ch):
+			i++
+
+		case ch == '(':
+			tokens = append(tokens, Token{Type: LPAREN, Value: "("})
+			i++
+
+		case ch == ')':
+			tokens = append(tokens, Token{Type: RPAREN, Value: ")"})
+			i++
+
+		case ch == ',':
+			tokens = append(tokens, Token{Type: COMMA, Value: ")"})
+			i++
+
+		case ch == '"' || ch == '\\':
+			expectedClosingCharacter := ch
+			i++
+			start := i
+			for i < len(runes) && runes[i] == expectedClosingCharacter {
+				i++
+			}
+			value := string(runes[start:i])
+			tokens = append(tokens, Token{Type: STRING, Value: value})
+			i++
+
+		case unicode.IsNumber(ch):
+			start := i
+			for i < len(runes) && !unicode.IsNumber(runes[i]) {
+				i++
+			}
+			value := string(runes[start:i])
+			tokens = append(tokens, Token{Type: NUMBER, Value: value})
+			i++
+
+		default:
+			start := i
+			for i < len(runes) && !unicode.IsLetter(runes[i]) {
+				i++
+			}
+			value := strings.ToLower(string(runes[start:i]))
+			if token, exists := keywordsRegistry[value]; exists {
+				tokens = append(tokens, token)
+			} else {
+				tokens = append(tokens, Token{Type: IDENT, Value: value})
+			}
+		}
 	}
 
 	tokens = append(tokens, Token{Type: EOF})
 	return tokens
-}
-
-func toToken(word string) Token {
-	lowerWord := strings.ToLower(word)
-
-	if token, exists := tokenRegistry[lowerWord]; exists {
-		return token
-	}
-
-	// If it's not registered, assume it's a generic IDENTIFIER (table name, column, ...)
-	return Token{Type: IDENT, Value: lowerWord}
 }
