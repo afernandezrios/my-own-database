@@ -1,7 +1,7 @@
 package parser
 
 import (
-	"fmt"
+	"errors"
 	"learning/db/tokenizer"
 )
 
@@ -19,6 +19,10 @@ type Statement struct {
 	Values    []string
 }
 
+// ErrUnsupportedStatement is returned when the first token is not a statement
+// type the parser knows how to handle.
+var ErrUnsupportedStatement = errors.New("Syntax not valid. Not supported operation!")
+
 func Parse(tokens []tokenizer.Token) (*Statement, error) {
 	parserTree := ParserTree{tokens: tokens, position: 0}
 	switch parserTree.peek().Type {
@@ -27,6 +31,6 @@ func Parse(tokens []tokenizer.Token) (*Statement, error) {
 	case tokenizer.INSERT:
 		return parserTree.createInsertStatement()
 	default:
-		return &Statement{}, fmt.Errorf("Syntax not valid. Not supported operation!")
+		return nil, ErrUnsupportedStatement
 	}
 }

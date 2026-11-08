@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"learning/db/parser"
@@ -28,10 +29,14 @@ func StartREPL(in io.Reader, out io.Writer) {
 			return
 		}
 
-		tokens:= tokenizer.Tokenize(cleanedLine)
-		statement, err:= parser.Parse(tokens)
+		tokens := tokenizer.Tokenize(cleanedLine)
+		statement, err := parser.Parse(tokens)
 
 		if err != nil {
+			if errors.Is(err, parser.ErrUnsupportedStatement) {
+				fmt.Fprintf(out, "Unrecognized command: %s\n", cleanedLine)
+				continue
+			}
 			fmt.Fprintln(out, err.Error())
 			return
 		}
