@@ -120,3 +120,137 @@ func TestInsertRow_valueCountMismatch_returnsErrorAndDoesNotAppend(t *testing.T)
 		})
 	}
 }
+
+func newUsersTable(t *testing.T) *Table {
+	t.Helper()
+
+	table := &Table{Name: "users", Columns: []string{"id", "name"}}
+	require.NoError(t, table.InsertRow([]string{"1", "Tim"}))
+	require.NoError(t, table.InsertRow([]string{"2", "Sarah"}))
+
+	return table
+}
+
+func TestSelectRows_subsetOfFields_returnsProjectedRows(t *testing.T) {
+	// Arrange
+	table := newUsersTable(t)
+
+	// Act
+	rows, err := table.SelectRows([]string{"name"})
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{{"Tim"}, {"Sarah"}}, rows)
+}
+
+func TestSelectRows_fieldsInRequestedOrder_returnsValuesInThatOrder(t *testing.T) {
+	// Arrange
+	table := newUsersTable(t)
+
+	// Act
+	rows, err := table.SelectRows([]string{"name", "id"})
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{{"Tim", "1"}, {"Sarah", "2"}}, rows)
+}
+
+func TestSelectRows_star_expandsAllColumns(t *testing.T) {
+	// Arrange
+	table := newUsersTable(t)
+
+	// Act
+	rows, err := table.SelectRows([]string{"*"})
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{{"1", "Tim"}, {"2", "Sarah"}}, rows)
+}
+
+func TestSelectRows_duplicateFields_returnsDuplicatedValues(t *testing.T) {
+	// Arrange
+	table := newUsersTable(t)
+
+	// Act
+	rows, err := table.SelectRows([]string{"id", "id"})
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{{"1", "1"}, {"2", "2"}}, rows)
+}
+
+func TestSelectRows_unknownField_returnsError(t *testing.T) {
+	// Arrange
+	table := newUsersTable(t)
+
+	// Act
+	rows, err := table.SelectRows([]string{"age"})
+
+	// Assert
+	assert.Nil(t, rows)
+	assert.ErrorContains(t, err, "age")
+}
+
+func TestSelectRows_emptyFields_returnsError(t *testing.T) {
+	// Arrange
+	table := newUsersTable(t)
+
+	// Act
+	rows, err := table.SelectRows([]string{})
+
+	// Assert
+	assert.Nil(t, rows)
+	assert.Error(t, err)
+}
+
+func TestSelectRows_emptyTable_returnsNoRows(t *testing.T) {
+	// Arrange
+	table := &Table{Name: "users", Columns: []string{"id", "name"}}
+
+	// Act
+	rows, err := table.SelectRows([]string{"id"})
+
+	// Assert
+	require.NoError(t, err)
+	assert.Empty(t, rows)
+}
+
+func TestSelectRows_returnedRowsAreCopies_doesNotMutateTable(t *testing.T) {
+	// Arrange
+	table := newUsersTable(t)
+	rows, err := table.SelectRows([]string{"id", "name"})
+	require.NoError(t, err)
+
+	// Act
+	rows[0][0] = "changed"
+
+	// Assert
+	assert.Equal(t, "1", table.Rows[0].values[0])
+}
+
+func TestCatalogSelectRows_existingTable_returnsRows(t *testing.T) {
+	// Arrange
+	catalog := newCatalog()
+	table, err := catalog.CreateTable("users", []string{"id", "name"})
+	require.NoError(t, err)
+	require.NoError(t, table.InsertRow([]string{"1", "Tim"}))
+
+	// Act
+	rows, err := catalog.SelectRows("users", []string{"id"})
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{{"1"}}, rows)
+}
+
+func TestCatalogSelectRows_missingTable_returnsError(t *testing.T) {
+	// Arrange
+	catalog := newCatalog()
+
+	// Act
+	rows, err := catalog.SelectRows("missing", []string{"id"})
+
+	// Assert
+	assert.Nil(t, rows)
+	assert.Error(t, err)
+}
