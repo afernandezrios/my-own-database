@@ -29,12 +29,12 @@ type Token struct {
 }
 
 var keywordsRegistry = map[string]Token{
-	"select": {Type: SELECT},
-	"insert": {Type: INSERT},
-	"into":   {Type: INTO},
-	"values": {Type: VALUES},
-	"from":   {Type: FROM},
-	"*":      {Type: SYMBOL},
+	"select": {Type: SELECT, Value: "select"},
+	"insert": {Type: INSERT, Value: "insert"},
+	"into":   {Type: INTO, Value: "into"},
+	"values": {Type: VALUES, Value: "values"},
+	"from":   {Type: FROM, Value: "from"},
+	"*":      {Type: SYMBOL, Value: "*"},
 }
 
 func Tokenize(statement string) []Token {
@@ -58,33 +58,35 @@ func Tokenize(statement string) []Token {
 			i++
 
 		case ch == ',':
-			tokens = append(tokens, Token{Type: COMMA, Value: ")"})
+			tokens = append(tokens, Token{Type: COMMA, Value: ","})
 			i++
 
-		case ch == '"' || ch == '\\':
-			expectedClosingCharacter := ch
+		case ch == '"' || ch == '\'':
+			quote := ch
 			i++
 			start := i
-			for i < len(runes) && runes[i] == expectedClosingCharacter {
+			for i < len(runes) && runes[i] != quote {
 				i++
 			}
-			value := string(runes[start:i])
-			tokens = append(tokens, Token{Type: STRING, Value: value})
-			i++
+			tokens = append(tokens, Token{Type: STRING, Value: string(runes[start:i])})
+			if i < len(runes) {
+				i++ // skip the closing quote
+			}
 
 		case unicode.IsNumber(ch):
 			start := i
-			for i < len(runes) && !unicode.IsNumber(runes[i]) {
+			for i < len(runes) && unicode.IsNumber(runes[i]) {
 				i++
 			}
-			value := string(runes[start:i])
-			tokens = append(tokens, Token{Type: NUMBER, Value: value})
-			i++
+			tokens = append(tokens, Token{Type: NUMBER, Value: string(runes[start:i])})
 
 		default:
 			start := i
-			for i < len(runes) && !unicode.IsLetter(runes[i]) {
+			for i < len(runes) && isIdentifierRune(runes[i]) {
 				i++
+			}
+			if i == start {
+				i++ // unknown punctuation still advances the cursor
 			}
 			value := strings.ToLower(string(runes[start:i]))
 			if token, exists := keywordsRegistry[value]; exists {
@@ -97,4 +99,8 @@ func Tokenize(statement string) []Token {
 
 	tokens = append(tokens, Token{Type: EOF})
 	return tokens
+}
+
+func isIdentifierRune(ch rune) bool {
+	return unicode.IsLetter(ch) || unicode.IsDigit(ch) || ch == '_'
 }
