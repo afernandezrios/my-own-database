@@ -112,6 +112,55 @@ func TestProcess_selectUnknownColumn_returnsError(t *testing.T) {
 	assert.ErrorContains(t, err, `Column 'age' does not exist in table 'users'.`)
 }
 
+func TestProcess_selectWhereMatch_printsMatchingRow(t *testing.T) {
+	// Arrange
+	resetCatalog(t)
+	createUsersTable(t)
+	require.NoError(t, catalog.InsertRows("users", []string{"1", "Tim"}))
+	require.NoError(t, catalog.InsertRows("users", []string{"2", "Sarah"}))
+
+	// Act
+	var processErr error
+	output := captureStdout(t, func() {
+		processErr = Process("select * from users where id = 1")
+	})
+
+	// Assert
+	require.NoError(t, processErr)
+	assert.Equal(t, "id   | name\n-----+------\n1    | Tim\n", output)
+}
+
+func TestProcess_selectWhereNoMatch_printsHeadersOnly(t *testing.T) {
+	// Arrange
+	resetCatalog(t)
+	createUsersTable(t)
+	require.NoError(t, catalog.InsertRows("users", []string{"1", "Tim"}))
+	require.NoError(t, catalog.InsertRows("users", []string{"2", "Sarah"}))
+
+	// Act
+	var processErr error
+	output := captureStdout(t, func() {
+		processErr = Process("select * from users where id = 99")
+	})
+
+	// Assert
+	require.NoError(t, processErr)
+	assert.Equal(t, "id   | name\n-----+------\n", output)
+}
+
+func TestProcess_selectWhereUnknownColumn_returnsError(t *testing.T) {
+	// Arrange
+	resetCatalog(t)
+	createUsersTable(t)
+	require.NoError(t, catalog.InsertRows("users", []string{"1", "Tim"}))
+
+	// Act
+	err := Process("select * from users where age = 30")
+
+	// Assert
+	assert.ErrorContains(t, err, `Column 'age' does not exist in table 'users'.`)
+}
+
 func TestProcess_insertExistingTable_addsRow(t *testing.T) {
 	// Arrange
 	resetCatalog(t)
@@ -126,7 +175,7 @@ func TestProcess_insertExistingTable_addsRow(t *testing.T) {
 	// Assert
 	require.NoError(t, processErr)
 	assert.Equal(t, "1 row inserted.\n", output)
-	_, rows, err := catalog.SelectRows("users", []string{"id", "name"})
+	_, rows, err := catalog.SelectRows("users", []string{"id", "name"}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, [][]string{{"1", "Tim"}}, rows)
 }
@@ -146,7 +195,7 @@ func TestProcess_insertTwice_appendsBothRows(t *testing.T) {
 	// Assert
 	require.NoError(t, processErr)
 	assert.Equal(t, "1 row inserted.\n1 row inserted.\n", output)
-	_, rows, err := catalog.SelectRows("users", []string{"name"})
+	_, rows, err := catalog.SelectRows("users", []string{"name"}, nil)
 	require.NoError(t, err)
 	assert.Equal(t, [][]string{{"Tim"}, {"Sarah"}}, rows)
 }
@@ -172,7 +221,7 @@ func TestProcess_insertValueCountMismatch_returnsErrorAndAddsNoRow(t *testing.T)
 
 	// Assert
 	assert.Error(t, err)
-	_, rows, selectErr := catalog.SelectRows("users", []string{"id", "name"})
+	_, rows, selectErr := catalog.SelectRows("users", []string{"id", "name"}, nil)
 	require.NoError(t, selectErr)
 	assert.Empty(t, rows)
 }

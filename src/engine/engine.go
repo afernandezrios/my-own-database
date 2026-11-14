@@ -31,7 +31,12 @@ func Process(command string) error {
 }
 
 func executeSelect(statement *parser.Statement) error {
-	columns, rows, err := catalog.SelectRows(statement.TableName, statement.Fields)
+	var filter *backend.Filter
+	if statement.Where != nil {
+		filter = &backend.Filter{Column: statement.Where.Column, Value: statement.Where.Value}
+	}
+
+	columns, rows, err := catalog.SelectRows(statement.TableName, statement.Fields, filter)
 	if err != nil {
 		return err
 	}

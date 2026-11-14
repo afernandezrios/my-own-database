@@ -87,6 +87,36 @@ db > Bye!
 	assert.Equal(t, expected, output)
 }
 
+func TestE2E_selectWhere_filtersRows(t *testing.T) {
+	// Arrange
+	input := `CREATE TABLE users (id, name)
+INSERT INTO users VALUES (1, 'Tim')
+INSERT INTO users VALUES (2, 'Sarah')
+SELECT * FROM users WHERE id = 1
+SELECT * FROM users WHERE id = 99
+SELECT * FROM users WHERE age = 30
+exit
+`
+	expected := `CLI started. Type 'exit' to close the application
+db > Table 'users' created.
+db > 1 row inserted.
+db > 1 row inserted.
+db > id   | name
+-----+------
+1    | Tim
+db > id   | name
+-----+------
+db > Error: Column 'age' does not exist in table 'users'.
+db > Bye!
+`
+
+	// Act
+	output := runApp(t, input)
+
+	// Assert
+	assert.Equal(t, expected, output)
+}
+
 func TestE2E_insertIntoMissingTable_printsErrorAndKeepsWorking(t *testing.T) {
 	// Arrange
 	input := `INSERT INTO non_existent_table VALUES (1)
