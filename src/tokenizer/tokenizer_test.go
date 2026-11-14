@@ -112,6 +112,26 @@ func TestTokenize_createTableKeywordsAreCaseInsensitive_tokensCreated(t *testing
 	assertToken(t, result[1], TABLE, "table")
 }
 
+func TestTokenize_containsWhereClause_tokensCreated(t *testing.T) {
+	// Arrange
+	statement := "SELECT * FROM users WHERE id = 1"
+
+	// Act
+	result := Tokenize(statement)
+
+	// Assert
+	assert.Len(t, result, 9)
+	assertToken(t, result[0], SELECT, "select")
+	assertToken(t, result[1], SYMBOL, "*")
+	assertToken(t, result[2], FROM, "from")
+	assertToken(t, result[3], IDENT, "users")
+	assertToken(t, result[4], WHERE, "where")
+	assertToken(t, result[5], IDENT, "id")
+	assertToken(t, result[6], COMPARATOR, "=")
+	assertToken(t, result[7], NUMBER, "1")
+	assertToken(t, result[8], EOF, "")
+}
+
 func assertToken(t assert.TestingT, token Token, expectedType TokenType, expectedValue string) {
 	assert.Equal(t, expectedType, token.Type)
 	assert.Equal(t, expectedValue, token.Value)

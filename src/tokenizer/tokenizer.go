@@ -22,6 +22,8 @@ const (
 	IDENT
 	FROM
 	SYMBOL
+	WHERE
+	COMPARATOR
 	EOF
 )
 
@@ -38,7 +40,9 @@ var keywordsRegistry = map[string]Token{
 	"create": {Type: CREATE, Value: "create"},
 	"table":  {Type: TABLE, Value: "table"},
 	"from":   {Type: FROM, Value: "from"},
+	"where":  {Type: WHERE, Value: "where"},
 	"*":      {Type: SYMBOL, Value: "*"},
+	"=":      {Type: COMPARATOR, Value: "="},
 }
 
 func Tokenize(statement string) []Token {

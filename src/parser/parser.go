@@ -19,6 +19,13 @@ type Statement struct {
 	TableName string
 	Values    []string
 	Columns   []string
+	Where     *Condition
+}
+
+// Condition is a single equality filter from a WHERE clause.
+type Condition struct {
+	Column string
+	Value  string
 }
 
 // ErrUnsupportedStatement is returned when the first token is not a statement

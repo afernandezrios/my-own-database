@@ -29,11 +29,45 @@ func (p *ParserTree) createSelectStatement() (*Statement, error) {
 		return nil, fmt.Errorf("FROM requires a valid TableName")
 	}
 
-	return &Statement{
+	statement := &Statement{
 		Type:      SELECT,
 		Fields:    selectTarget,
 		TableName: tableToken.Value,
-	}, nil
+	}
+
+	if p.peek().Type == tokenizer.WHERE {
+		condition, err := p.createWhereCondition()
+		if err != nil {
+			return nil, err
+		}
+		statement.Where = condition
+	}
+
+	if p.peek().Type != tokenizer.EOF {
+		return nil, fmt.Errorf("unexpected token %q after SELECT", p.peek().Value)
+	}
+
+	return statement, nil
+}
+
+func (p *ParserTree) createWhereCondition() (*Condition, error) {
+	p.consume() // WHERE
+
+	column := p.consume()
+	if column.Type != tokenizer.IDENT {
+		return nil, fmt.Errorf("WHERE requires a column name")
+	}
+
+	if p.consume().Type != tokenizer.COMPARATOR {
+		return nil, fmt.Errorf("WHERE requires a comparison operator")
+	}
+
+	value := p.consume()
+	if value.Type != tokenizer.STRING && value.Type != tokenizer.NUMBER {
+		return nil, fmt.Errorf("WHERE requires a value")
+	}
+
+	return &Condition{Column: column.Value, Value: value.Value}, nil
 }
 
 func isValidSelectTarget(token tokenizer.Token) bool {
