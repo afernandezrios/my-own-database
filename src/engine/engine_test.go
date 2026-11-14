@@ -196,3 +196,86 @@ func TestProcess_selectKeywordsAreCaseInsensitive_returnsRows(t *testing.T) {
 	require.NoError(t, processErr)
 	assert.Equal(t, "1, Tim\n", output)
 }
+
+func TestProcess_createTable_createsTable(t *testing.T) {
+	// Arrange
+	resetCatalog(t)
+
+	// Act
+	var processErr error
+	output := captureStdout(t, func() {
+		processErr = Process("CREATE TABLE users (id, name)")
+	})
+
+	// Assert
+	require.NoError(t, processErr)
+	assert.Equal(t, "Table 'users' created.\n", output)
+	table, exists := catalog.Tables["users"]
+	require.True(t, exists)
+	assert.Equal(t, []string{"id", "name"}, table.Columns)
+	assert.Empty(t, table.Rows)
+}
+
+func TestProcess_createTableSingleColumn_createsTable(t *testing.T) {
+	// Arrange
+	resetCatalog(t)
+
+	// Act
+	var processErr error
+	captureStdout(t, func() {
+		processErr = Process("CREATE TABLE users (id)")
+	})
+
+	// Assert
+	require.NoError(t, processErr)
+	table, exists := catalog.Tables["users"]
+	require.True(t, exists)
+	assert.Equal(t, []string{"id"}, table.Columns)
+}
+
+func TestProcess_createTableTwice_returnsError(t *testing.T) {
+	// Arrange
+	resetCatalog(t)
+	createUsersTable(t)
+
+	// Act
+	err := Process("create table users (id)")
+
+	// Assert
+	assert.ErrorContains(t, err, `Table "users" already exists`)
+}
+
+func TestProcess_createTableThenInsertAndSelect_roundTrip(t *testing.T) {
+	// Arrange
+	resetCatalog(t)
+
+	// Act
+	var createErr error
+	captureStdout(t, func() {
+		createErr = Process("CREATE TABLE users (id, name)")
+	})
+	insertErr := Process("INSERT INTO users VALUES (1, 'Tim')")
+
+	var selectErr error
+	output := captureStdout(t, func() {
+		selectErr = Process("SELECT * FROM users")
+	})
+
+	// Assert
+	require.NoError(t, createErr)
+	require.NoError(t, insertErr)
+	require.NoError(t, selectErr)
+	assert.Equal(t, "1, Tim\n", output)
+}
+
+func TestProcess_createTableInvalidSyntax_returnsError(t *testing.T) {
+	// Arrange
+	resetCatalog(t)
+
+	// Act
+	err := Process("CREATE TABLE users id, name")
+
+	// Assert
+	assert.Error(t, err)
+	assert.NotContains(t, catalog.Tables, "users")
+}

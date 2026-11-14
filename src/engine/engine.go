@@ -23,6 +23,8 @@ func Process(command string) error {
 		return executeSelect(statement)
 	case parser.INSERT:
 		return executeInsert(statement)
+	case parser.CREATE_TABLE:
+		return executeCreateTable(statement)
 	default:
 		return fmt.Errorf("Unrecognized statement in %q", command)
 	}
@@ -43,4 +45,14 @@ func executeSelect(statement *parser.Statement) error {
 
 func executeInsert(statement *parser.Statement) error {
 	return catalog.InsertRows(statement.TableName, statement.Values)
+}
+
+func executeCreateTable(statement *parser.Statement) error {
+	_, err := catalog.CreateTable(statement.TableName, statement.Columns)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Table '%s' created.\n", statement.TableName)
+	return nil
 }
