@@ -35,7 +35,7 @@ func StartREPL(in io.Reader, out io.Writer) {
 				fmt.Fprintf(out, "Unrecognized command: %s\n", cleanedLine)
 				continue
 			}
-			fmt.Fprintln(out, err.Error())
+			fmt.Fprintf(out, "Error: %s\n", err.Error())
 			return
 		}
 	}

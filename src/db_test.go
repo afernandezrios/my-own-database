@@ -38,6 +38,23 @@ func TestStartREPL_unrecognizedCommand_continuesReadingCommands(t *testing.T) {
 	}
 }
 
+func TestStartREPL_executionError_printsErrorPrefix(t *testing.T) {
+	// Arrange
+	input := strings.NewReader("INSERT INTO non_existent_table VALUES (1)\n")
+	var output bytes.Buffer
+
+	// Act
+	StartREPL(input, &output)
+
+	// Assert
+	got := output.String()
+	expectedError := "Error: Table 'non_existent_table' does not exist."
+
+	if !strings.Contains(got, expectedError) {
+		t.Errorf("Expected output to contain %q, but got:\n%q", expectedError, got)
+	}
+}
+
 func TestStartREPL_exitCommand_closeProgramWithByeText(t *testing.T) {
 	// Arrange
 	input := strings.NewReader("exit")

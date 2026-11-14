@@ -36,7 +36,7 @@ func TestCreateTable_existingTable_returnsErrorAndKeepsOriginal(t *testing.T) {
 	_, err = catalog.CreateTable("users", []string{"id", "name"})
 
 	// Assert
-	assert.Error(t, err)
+	assert.EqualError(t, err, `Table 'users' already exists.`)
 	assert.Equal(t, []string{"id"}, catalog.Tables["users"].Columns)
 }
 
@@ -121,6 +121,17 @@ func TestInsertRow_valueCountMismatch_returnsErrorAndDoesNotAppend(t *testing.T)
 	}
 }
 
+func TestInsertRows_missingTable_returnsError(t *testing.T) {
+	// Arrange
+	catalog := newCatalog()
+
+	// Act
+	err := catalog.InsertRows("missing", []string{"1"})
+
+	// Assert
+	assert.EqualError(t, err, `Table 'missing' does not exist.`)
+}
+
 func newUsersTable(t *testing.T) *Table {
 	t.Helper()
 
@@ -136,10 +147,11 @@ func TestSelectRows_subsetOfFields_returnsProjectedRows(t *testing.T) {
 	table := newUsersTable(t)
 
 	// Act
-	rows, err := table.SelectRows([]string{"name"})
+	columns, rows, err := table.SelectRows([]string{"name"})
 
 	// Assert
 	require.NoError(t, err)
+	assert.Equal(t, []string{"name"}, columns)
 	assert.Equal(t, [][]string{{"Tim"}, {"Sarah"}}, rows)
 }
 
@@ -148,10 +160,11 @@ func TestSelectRows_fieldsInRequestedOrder_returnsValuesInThatOrder(t *testing.T
 	table := newUsersTable(t)
 
 	// Act
-	rows, err := table.SelectRows([]string{"name", "id"})
+	columns, rows, err := table.SelectRows([]string{"name", "id"})
 
 	// Assert
 	require.NoError(t, err)
+	assert.Equal(t, []string{"name", "id"}, columns)
 	assert.Equal(t, [][]string{{"Tim", "1"}, {"Sarah", "2"}}, rows)
 }
 
@@ -160,10 +173,11 @@ func TestSelectRows_star_expandsAllColumns(t *testing.T) {
 	table := newUsersTable(t)
 
 	// Act
-	rows, err := table.SelectRows([]string{"*"})
+	columns, rows, err := table.SelectRows([]string{"*"})
 
 	// Assert
 	require.NoError(t, err)
+	assert.Equal(t, []string{"id", "name"}, columns)
 	assert.Equal(t, [][]string{{"1", "Tim"}, {"2", "Sarah"}}, rows)
 }
 
@@ -172,10 +186,11 @@ func TestSelectRows_duplicateFields_returnsDuplicatedValues(t *testing.T) {
 	table := newUsersTable(t)
 
 	// Act
-	rows, err := table.SelectRows([]string{"id", "id"})
+	columns, rows, err := table.SelectRows([]string{"id", "id"})
 
 	// Assert
 	require.NoError(t, err)
+	assert.Equal(t, []string{"id", "id"}, columns)
 	assert.Equal(t, [][]string{{"1", "1"}, {"2", "2"}}, rows)
 }
 
@@ -184,11 +199,12 @@ func TestSelectRows_unknownField_returnsError(t *testing.T) {
 	table := newUsersTable(t)
 
 	// Act
-	rows, err := table.SelectRows([]string{"age"})
+	columns, rows, err := table.SelectRows([]string{"age"})
 
 	// Assert
+	assert.Nil(t, columns)
 	assert.Nil(t, rows)
-	assert.ErrorContains(t, err, "age")
+	assert.EqualError(t, err, `Column 'age' does not exist in table 'users'.`)
 }
 
 func TestSelectRows_emptyFields_returnsError(t *testing.T) {
@@ -196,9 +212,10 @@ func TestSelectRows_emptyFields_returnsError(t *testing.T) {
 	table := newUsersTable(t)
 
 	// Act
-	rows, err := table.SelectRows([]string{})
+	columns, rows, err := table.SelectRows([]string{})
 
 	// Assert
+	assert.Nil(t, columns)
 	assert.Nil(t, rows)
 	assert.Error(t, err)
 }
@@ -208,17 +225,18 @@ func TestSelectRows_emptyTable_returnsNoRows(t *testing.T) {
 	table := &Table{Name: "users", Columns: []string{"id", "name"}}
 
 	// Act
-	rows, err := table.SelectRows([]string{"id"})
+	columns, rows, err := table.SelectRows([]string{"id"})
 
 	// Assert
 	require.NoError(t, err)
+	assert.Equal(t, []string{"id"}, columns)
 	assert.Empty(t, rows)
 }
 
 func TestSelectRows_returnedRowsAreCopies_doesNotMutateTable(t *testing.T) {
 	// Arrange
 	table := newUsersTable(t)
-	rows, err := table.SelectRows([]string{"id", "name"})
+	_, rows, err := table.SelectRows([]string{"id", "name"})
 	require.NoError(t, err)
 
 	// Act
@@ -236,10 +254,11 @@ func TestCatalogSelectRows_existingTable_returnsRows(t *testing.T) {
 	require.NoError(t, table.InsertRow([]string{"1", "Tim"}))
 
 	// Act
-	rows, err := catalog.SelectRows("users", []string{"id"})
+	columns, rows, err := catalog.SelectRows("users", []string{"id"})
 
 	// Assert
 	require.NoError(t, err)
+	assert.Equal(t, []string{"id"}, columns)
 	assert.Equal(t, [][]string{{"1"}}, rows)
 }
 
@@ -248,9 +267,10 @@ func TestCatalogSelectRows_missingTable_returnsError(t *testing.T) {
 	catalog := newCatalog()
 
 	// Act
-	rows, err := catalog.SelectRows("missing", []string{"id"})
+	columns, rows, err := catalog.SelectRows("missing", []string{"id"})
 
 	// Assert
+	assert.Nil(t, columns)
 	assert.Nil(t, rows)
-	assert.Error(t, err)
+	assert.EqualError(t, err, `Table 'missing' does not exist.`)
 }

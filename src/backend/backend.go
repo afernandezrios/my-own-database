@@ -22,7 +22,7 @@ type Row struct {
 
 func (c *Catalog) CreateTable(name string, columns []string) (*Table, error) {
 	if _, exists := c.Tables[name]; exists {
-		return nil, fmt.Errorf("Table %q already exists", name)
+		return nil, fmt.Errorf("Table '%s' already exists.", name)
 	}
 
 	if c.Tables == nil {
@@ -41,24 +41,24 @@ func (c *Catalog) CreateTable(name string, columns []string) (*Table, error) {
 func (c *Catalog) InsertRows(name string, values []string) error {
 	table, exists := c.Tables[name]
 	if !exists {
-		return fmt.Errorf("table %q does not exist", name)
+		return fmt.Errorf("Table '%s' does not exist.", name)
 	}
 
 	return table.InsertRow(values)
 }
 
-func (c *Catalog) SelectRows(name string, fields []string) ([][]string, error) {
+func (c *Catalog) SelectRows(name string, fields []string) ([]string, [][]string, error) {
 	table, exists := c.Tables[name]
 	if !exists {
-		return nil, fmt.Errorf("table %q does not exist", name)
+		return nil, nil, fmt.Errorf("Table '%s' does not exist.", name)
 	}
 
 	return table.SelectRows(fields)
 }
 
-func (t *Table) SelectRows(fields []string) ([][]string, error) {
+func (t *Table) SelectRows(fields []string) ([]string, [][]string, error) {
 	if len(fields) == 0 {
-		return nil, errors.New("select requires at least one field")
+		return nil, nil, errors.New("select requires at least one field")
 	}
 
 	if len(fields) == 1 && fields[0] == "*" {
@@ -69,7 +69,7 @@ func (t *Table) SelectRows(fields []string) ([][]string, error) {
 	for i, field := range fields {
 		index := slices.Index(t.Columns, field)
 		if index == -1 {
-			return nil, fmt.Errorf("column %q does not exist in table %q", field, t.Name)
+			return nil, nil, fmt.Errorf("Column '%s' does not exist in table '%s'.", field, t.Name)
 		}
 		indexes[i] = index
 	}
@@ -83,7 +83,7 @@ func (t *Table) SelectRows(fields []string) ([][]string, error) {
 		rows = append(rows, projected)
 	}
 
-	return rows, nil
+	return slices.Clone(fields), rows, nil
 }
 
 func (t *Table) InsertRow(values []string) error {

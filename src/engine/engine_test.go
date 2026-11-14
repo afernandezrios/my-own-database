@@ -65,7 +65,7 @@ func TestProcess_selectExistingTable_printsRequestedFields(t *testing.T) {
 
 	// Assert
 	require.NoError(t, processErr)
-	assert.Equal(t, "Tim\nSarah\n", output)
+	assert.Equal(t, "name\n------\nTim\nSarah\n", output)
 }
 
 func TestProcess_selectStar_printsAllColumns(t *testing.T) {
@@ -82,7 +82,7 @@ func TestProcess_selectStar_printsAllColumns(t *testing.T) {
 
 	// Assert
 	require.NoError(t, processErr)
-	assert.Equal(t, "1, Tim\n", output)
+	assert.Equal(t, "id   | name\n-----+------\n1    | Tim\n", output)
 }
 
 func TestProcess_selectMissingTable_returnsErrorAndPrintsNothing(t *testing.T) {
@@ -96,7 +96,7 @@ func TestProcess_selectMissingTable_returnsErrorAndPrintsNothing(t *testing.T) {
 	})
 
 	// Assert
-	assert.ErrorContains(t, processErr, `table "users" does not exist`)
+	assert.ErrorContains(t, processErr, `Table 'users' does not exist.`)
 	assert.Empty(t, output)
 }
 
@@ -109,7 +109,7 @@ func TestProcess_selectUnknownColumn_returnsError(t *testing.T) {
 	err := Process("select age from users")
 
 	// Assert
-	assert.ErrorContains(t, err, `column "age" does not exist`)
+	assert.ErrorContains(t, err, `Column 'age' does not exist in table 'users'.`)
 }
 
 func TestProcess_insertExistingTable_addsRow(t *testing.T) {
@@ -118,11 +118,15 @@ func TestProcess_insertExistingTable_addsRow(t *testing.T) {
 	createUsersTable(t)
 
 	// Act
-	err := Process("insert into users values ('1', 'Tim')")
+	var processErr error
+	output := captureStdout(t, func() {
+		processErr = Process("insert into users values ('1', 'Tim')")
+	})
 
 	// Assert
-	require.NoError(t, err)
-	rows, err := catalog.SelectRows("users", []string{"id", "name"})
+	require.NoError(t, processErr)
+	assert.Equal(t, "1 row inserted.\n", output)
+	_, rows, err := catalog.SelectRows("users", []string{"id", "name"})
 	require.NoError(t, err)
 	assert.Equal(t, [][]string{{"1", "Tim"}}, rows)
 }
@@ -133,12 +137,16 @@ func TestProcess_insertTwice_appendsBothRows(t *testing.T) {
 	createUsersTable(t)
 
 	// Act
-	require.NoError(t, Process("insert into users values ('1', 'Tim')"))
-	err := Process("insert into users values ('2', 'Sarah')")
+	var processErr error
+	output := captureStdout(t, func() {
+		require.NoError(t, Process("insert into users values ('1', 'Tim')"))
+		processErr = Process("insert into users values ('2', 'Sarah')")
+	})
 
 	// Assert
-	require.NoError(t, err)
-	rows, err := catalog.SelectRows("users", []string{"name"})
+	require.NoError(t, processErr)
+	assert.Equal(t, "1 row inserted.\n1 row inserted.\n", output)
+	_, rows, err := catalog.SelectRows("users", []string{"name"})
 	require.NoError(t, err)
 	assert.Equal(t, [][]string{{"Tim"}, {"Sarah"}}, rows)
 }
@@ -151,7 +159,7 @@ func TestProcess_insertMissingTable_returnsError(t *testing.T) {
 	err := Process("insert into users values ('1', 'Tim')")
 
 	// Assert
-	assert.ErrorContains(t, err, `table "users" does not exist`)
+	assert.ErrorContains(t, err, `Table 'users' does not exist.`)
 }
 
 func TestProcess_insertValueCountMismatch_returnsErrorAndAddsNoRow(t *testing.T) {
@@ -164,7 +172,7 @@ func TestProcess_insertValueCountMismatch_returnsErrorAndAddsNoRow(t *testing.T)
 
 	// Assert
 	assert.Error(t, err)
-	rows, selectErr := catalog.SelectRows("users", []string{"id", "name"})
+	_, rows, selectErr := catalog.SelectRows("users", []string{"id", "name"})
 	require.NoError(t, selectErr)
 	assert.Empty(t, rows)
 }
@@ -194,7 +202,7 @@ func TestProcess_selectKeywordsAreCaseInsensitive_returnsRows(t *testing.T) {
 
 	// Assert
 	require.NoError(t, processErr)
-	assert.Equal(t, "1, Tim\n", output)
+	assert.Equal(t, "id   | name\n-----+------\n1    | Tim\n", output)
 }
 
 func TestProcess_createTable_createsTable(t *testing.T) {
@@ -242,7 +250,7 @@ func TestProcess_createTableTwice_returnsError(t *testing.T) {
 	err := Process("create table users (id)")
 
 	// Assert
-	assert.ErrorContains(t, err, `Table "users" already exists`)
+	assert.ErrorContains(t, err, `Table 'users' already exists.`)
 }
 
 func TestProcess_createTableThenInsertAndSelect_roundTrip(t *testing.T) {
@@ -251,21 +259,27 @@ func TestProcess_createTableThenInsertAndSelect_roundTrip(t *testing.T) {
 
 	// Act
 	var createErr error
-	captureStdout(t, func() {
+	createOutput := captureStdout(t, func() {
 		createErr = Process("CREATE TABLE users (id, name)")
 	})
-	insertErr := Process("INSERT INTO users VALUES (1, 'Tim')")
+
+	var insertErr error
+	insertOutput := captureStdout(t, func() {
+		insertErr = Process("INSERT INTO users VALUES (1, 'Tim')")
+	})
 
 	var selectErr error
-	output := captureStdout(t, func() {
+	selectOutput := captureStdout(t, func() {
 		selectErr = Process("SELECT * FROM users")
 	})
 
 	// Assert
 	require.NoError(t, createErr)
+	assert.Equal(t, "Table 'users' created.\n", createOutput)
 	require.NoError(t, insertErr)
+	assert.Equal(t, "1 row inserted.\n", insertOutput)
 	require.NoError(t, selectErr)
-	assert.Equal(t, "1, Tim\n", output)
+	assert.Equal(t, "id   | name\n-----+------\n1    | Tim\n", selectOutput)
 }
 
 func TestProcess_createTableInvalidSyntax_returnsError(t *testing.T) {
