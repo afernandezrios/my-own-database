@@ -20,6 +20,12 @@ type Row struct {
 	values []string // only string datatype at this moment
 }
 
+// Filter selects rows whose Column value equals Value.
+type Filter struct {
+	Column string
+	Value  string
+}
+
 func (c *Catalog) CreateTable(name string, columns []string) (*Table, error) {
 	if _, exists := c.Tables[name]; exists {
 		return nil, fmt.Errorf("Table '%s' already exists.", name)
@@ -47,16 +53,16 @@ func (c *Catalog) InsertRows(name string, values []string) error {
 	return table.InsertRow(values)
 }
 
-func (c *Catalog) SelectRows(name string, fields []string) ([]string, [][]string, error) {
+func (c *Catalog) SelectRows(name string, fields []string, filter *Filter) ([]string, [][]string, error) {
 	table, exists := c.Tables[name]
 	if !exists {
 		return nil, nil, fmt.Errorf("Table '%s' does not exist.", name)
 	}
 
-	return table.SelectRows(fields)
+	return table.SelectRows(fields, filter)
 }
 
-func (t *Table) SelectRows(fields []string) ([]string, [][]string, error) {
+func (t *Table) SelectRows(fields []string, filter *Filter) ([]string, [][]string, error) {
 	if len(fields) == 0 {
 		return nil, nil, errors.New("select requires at least one field")
 	}
@@ -74,8 +80,20 @@ func (t *Table) SelectRows(fields []string) ([]string, [][]string, error) {
 		indexes[i] = index
 	}
 
+	filterIndex := -1
+	if filter != nil {
+		filterIndex = slices.Index(t.Columns, filter.Column)
+		if filterIndex == -1 {
+			return nil, nil, fmt.Errorf("Column '%s' does not exist in table '%s'.", filter.Column, t.Name)
+		}
+	}
+
 	rows := make([][]string, 0, len(t.Rows))
 	for _, row := range t.Rows {
+		if filterIndex != -1 && row.values[filterIndex] != filter.Value {
+			continue
+		}
+
 		projected := make([]string, len(indexes))
 		for i, index := range indexes {
 			projected[i] = row.values[index]
