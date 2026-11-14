@@ -87,12 +87,41 @@ db > Bye!
 	assert.Equal(t, expected, output)
 }
 
-func TestE2E_insertIntoMissingTable_printsError(t *testing.T) {
+func TestE2E_insertIntoMissingTable_printsErrorAndKeepsWorking(t *testing.T) {
 	// Arrange
 	input := `INSERT INTO non_existent_table VALUES (1)
+exit
 `
 	expected := `CLI started. Type 'exit' to close the application
 db > Error: Table 'non_existent_table' does not exist.
+db > Bye!
+`
+
+	// Act
+	output := runApp(t, input)
+
+	// Assert
+	assert.Equal(t, expected, output)
+}
+
+func TestE2E_failedCommands_keepWorking(t *testing.T) {
+	// Arrange
+	input := `INSERT INTO non_existent_table VALUES (1)
+SELECT * FROM non_existent_table
+CREATE TABLE users (id, name)
+INSERT INTO users VALUES (1, 'Tim')
+SELECT * FROM users
+exit
+`
+	expected := `CLI started. Type 'exit' to close the application
+db > Error: Table 'non_existent_table' does not exist.
+db > Error: Table 'non_existent_table' does not exist.
+db > Table 'users' created.
+db > 1 row inserted.
+db > id   | name
+-----+------
+1    | Tim
+db > Bye!
 `
 
 	// Act

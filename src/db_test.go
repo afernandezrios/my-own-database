@@ -55,6 +55,21 @@ func TestStartREPL_executionError_printsErrorPrefix(t *testing.T) {
 	}
 }
 
+func TestStartREPL_executionError_continuesReadingCommands(t *testing.T) {
+	// Arrange
+	input := strings.NewReader("INSERT INTO non_existent_table VALUES (1)\nexit\n")
+	var output bytes.Buffer
+
+	// Act
+	StartREPL(input, &output)
+
+	// Assert
+	got := output.String()
+	if !strings.HasSuffix(got, "Bye!\n") {
+		t.Errorf("Expected REPL to keep reading after a failed command and exit on 'exit', but got:\n%q", got)
+	}
+}
+
 func TestStartREPL_exitCommand_closeProgramWithByeText(t *testing.T) {
 	// Arrange
 	input := strings.NewReader("exit")

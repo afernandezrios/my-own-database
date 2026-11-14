@@ -36,7 +36,7 @@ func StartREPL(in io.Reader, out io.Writer) {
 				continue
 			}
 			fmt.Fprintf(out, "Error: %s\n", err.Error())
-			return
+			continue
 		}
 	}
 }
