@@ -38,6 +38,15 @@ func (c *Catalog) CreateTable(name string, columns []string) (*Table, error) {
 	return table, nil
 }
 
+func (c *Catalog) InsertRows(name string, values []string) error {
+	table, exists := c.Tables[name]
+	if !exists {
+		return fmt.Errorf("table %q does not exist", name)
+	}
+
+	return table.InsertRow(values)
+}
+
 func (c *Catalog) SelectRows(name string, fields []string) ([][]string, error) {
 	table, exists := c.Tables[name]
 	if !exists {
