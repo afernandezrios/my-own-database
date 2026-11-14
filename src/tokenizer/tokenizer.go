@@ -12,6 +12,8 @@ const (
 	INSERT
 	INTO
 	VALUES
+	CREATE
+	TABLE
 	LPAREN
 	RPAREN
 	COMMA
@@ -33,6 +35,8 @@ var keywordsRegistry = map[string]Token{
 	"insert": {Type: INSERT, Value: "insert"},
 	"into":   {Type: INTO, Value: "into"},
 	"values": {Type: VALUES, Value: "values"},
+	"create": {Type: CREATE, Value: "create"},
+	"table":  {Type: TABLE, Value: "table"},
 	"from":   {Type: FROM, Value: "from"},
 	"*":      {Type: SYMBOL, Value: "*"},
 }

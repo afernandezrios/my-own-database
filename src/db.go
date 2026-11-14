@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"learning/db/engine"
+	"learning/db/parser"
 	"os"
 	"strings"
 )
@@ -29,6 +31,10 @@ func StartREPL(in io.Reader, out io.Writer) {
 
 		err := engine.Process(cleanedLine)
 		if err != nil {
+			if errors.Is(err, parser.ErrUnsupportedStatement) {
+				fmt.Fprintf(out, "Unrecognized command: %s\n", cleanedLine)
+				continue
+			}
 			fmt.Fprintln(out, err.Error())
 			return
 		}

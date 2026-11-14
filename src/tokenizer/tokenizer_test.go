@@ -80,6 +80,38 @@ func TestTokenize_differentCasing_tokensCreated(t *testing.T) {
 	assertToken(t, result[3], IDENT, "users")
 }
 
+func TestTokenize_containsCreateTableStatement_tokensCreated(t *testing.T) {
+	// Arrange
+	statement := "CREATE TABLE users (id, name)"
+
+	// Act
+	result := Tokenize(statement)
+
+	// Assert
+	assert.Len(t, result, 9)
+	assertToken(t, result[0], CREATE, "create")
+	assertToken(t, result[1], TABLE, "table")
+	assertToken(t, result[2], IDENT, "users")
+	assertToken(t, result[3], LPAREN, "(")
+	assertToken(t, result[4], IDENT, "id")
+	assertToken(t, result[5], COMMA, ",")
+	assertToken(t, result[6], IDENT, "name")
+	assertToken(t, result[7], RPAREN, ")")
+	assertToken(t, result[8], EOF, "")
+}
+
+func TestTokenize_createTableKeywordsAreCaseInsensitive_tokensCreated(t *testing.T) {
+	// Arrange
+	statement := "CrEaTe TaBlE users (id)"
+
+	// Act
+	result := Tokenize(statement)
+
+	// Assert
+	assertToken(t, result[0], CREATE, "create")
+	assertToken(t, result[1], TABLE, "table")
+}
+
 func assertToken(t assert.TestingT, token Token, expectedType TokenType, expectedValue string) {
 	assert.Equal(t, expectedType, token.Type)
 	assert.Equal(t, expectedValue, token.Value)
