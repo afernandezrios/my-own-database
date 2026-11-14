@@ -10,6 +10,7 @@ type StatementType int
 const (
 	SELECT StatementType = iota
 	INSERT
+	CREATE_TABLE
 )
 
 type Statement struct {
@@ -17,6 +18,7 @@ type Statement struct {
 	Fields    []string
 	TableName string
 	Values    []string
+	Columns   []string
 }
 
 // ErrUnsupportedStatement is returned when the first token is not a statement
@@ -30,6 +32,8 @@ func Parse(tokens []tokenizer.Token) (*Statement, error) {
 		return parserTree.createSelectStatement()
 	case tokenizer.INSERT:
 		return parserTree.createInsertStatement()
+	case tokenizer.CREATE:
+		return parserTree.createCreateTableStatement()
 	default:
 		return nil, ErrUnsupportedStatement
 	}
