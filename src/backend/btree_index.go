@@ -16,7 +16,7 @@ type BTreeIndex[T any] struct {
 	tree *btree.BTreeG[IndexItem[T]]
 }
 
-// NewBtreeIndex initializes the B-Tree.
+// Initializes the B-Tree.
 //
 // - How to choose/calculate BTree degree:
 //   - Lower degrees mean smaller nodes, leading to shallower memory overhead for small datasets or frequent pointer mutations.
