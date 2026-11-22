@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -67,6 +68,21 @@ func TestCreateTable_returnedTable_isTheOneStoredInCatalog(t *testing.T) {
 	assert.Len(t, catalog.Tables["users"].Rows, 1)
 }
 
+func TestCreateTable_idColumn_createsIndex(t *testing.T) {
+	// Arrange
+	catalog := newCatalog()
+
+	// Act
+	withID, err := catalog.CreateTable("users", []string{"id", "name"})
+	require.NoError(t, err)
+	withoutID, err := catalog.CreateTable("logs", []string{"message"})
+	require.NoError(t, err)
+
+	// Assert
+	assert.NotNil(t, withID.index)
+	assert.Nil(t, withoutID.index)
+}
+
 func TestInsertRow_matchingColumnCount_appendsRow(t *testing.T) {
 	// Arrange
 	table := &Table{Name: "users", Columns: []string{"id", "name"}}
@@ -121,6 +137,68 @@ func TestInsertRow_valueCountMismatch_returnsErrorAndDoesNotAppend(t *testing.T)
 	}
 }
 
+func TestInsertRow_indexedTable_maintainsIndex(t *testing.T) {
+	// Arrange
+	catalog := newCatalog()
+	table, err := catalog.CreateTable("users", []string{"id", "name"})
+	require.NoError(t, err)
+
+	// Act
+	require.NoError(t, table.InsertRow([]string{"7", "Tim"}))
+	require.NoError(t, table.InsertRow([]string{"2", "Sarah"}))
+
+	// Assert
+	offset, found := table.index.Search(7)
+	require.True(t, found)
+	assert.Equal(t, 0, offset)
+	offset, found = table.index.Search(2)
+	require.True(t, found)
+	assert.Equal(t, 1, offset)
+	_, found = table.index.Search(99)
+	assert.False(t, found)
+}
+
+func TestInsertRow_nonNumericID_returnsErrorAndDoesNotAppend(t *testing.T) {
+	// Arrange
+	catalog := newCatalog()
+	table, err := catalog.CreateTable("users", []string{"id", "name"})
+	require.NoError(t, err)
+
+	// Act
+	err = table.InsertRow([]string{"abc", "Tim"})
+
+	// Assert
+	assert.EqualError(t, err, `invalid value 'abc' for column 'id' in table 'users': id must be an integer`)
+	assert.Empty(t, table.Rows)
+	_, found := table.index.Search(0)
+	assert.False(t, found)
+
+	// A failed insert must not corrupt the index for later inserts.
+	require.NoError(t, table.InsertRow([]string{"1", "Tim"}))
+	_, rows, selectErr := table.SelectRows([]string{"id"}, &Filter{Column: "id", Value: "1"})
+	require.NoError(t, selectErr)
+	assert.Equal(t, [][]string{{"1"}}, rows)
+}
+
+func TestInsertRow_duplicateID_indexPointsAtNewestRow(t *testing.T) {
+	// Arrange
+	catalog := newCatalog()
+	table, err := catalog.CreateTable("users", []string{"id", "name"})
+	require.NoError(t, err)
+	require.NoError(t, table.InsertRow([]string{"1", "Tim"}))
+	require.NoError(t, table.InsertRow([]string{"1", "Sarah"}))
+
+	// Act
+	_, pointRows, err := table.SelectRows([]string{"*"}, &Filter{Column: "id", Value: "1"})
+	require.NoError(t, err)
+	_, allRows, err := table.SelectRows([]string{"*"}, nil)
+	require.NoError(t, err)
+
+	// Assert: the point lookup resolves to the newest row; the scan still sees both.
+	assert.Equal(t, [][]string{{"1", "Sarah"}}, pointRows)
+	assert.Equal(t, [][]string{{"1", "Tim"}, {"1", "Sarah"}}, allRows)
+}
+
 func TestInsertRows_missingTable_returnsError(t *testing.T) {
 	// Arrange
 	catalog := newCatalog()
@@ -135,7 +213,8 @@ func TestInsertRows_missingTable_returnsError(t *testing.T) {
 func newUsersTable(t *testing.T) *Table {
 	t.Helper()
 
-	table := &Table{Name: "users", Columns: []string{"id", "name"}}
+	table, err := newCatalog().CreateTable("users", []string{"id", "name"})
+	require.NoError(t, err)
 	require.NoError(t, table.InsertRow([]string{"1", "Tim"}))
 	require.NoError(t, table.InsertRow([]string{"2", "Sarah"}))
 
@@ -204,7 +283,7 @@ func TestSelectRows_unknownField_returnsError(t *testing.T) {
 	// Assert
 	assert.Nil(t, columns)
 	assert.Nil(t, rows)
-	assert.EqualError(t, err, `Column 'age' does not exist in table 'users'.`)
+	assert.EqualError(t, err, `column 'age' does not exist in table 'users'`)
 }
 
 func TestSelectRows_emptyFields_returnsError(t *testing.T) {
@@ -272,6 +351,21 @@ func TestSelectRows_whereNoMatch_returnsHeadersAndNoRows(t *testing.T) {
 	assert.Empty(t, rows)
 }
 
+func TestSelectRows_whereID_intSemantics(t *testing.T) {
+	// Arrange
+	catalog := newCatalog()
+	table, err := catalog.CreateTable("users", []string{"id", "name"})
+	require.NoError(t, err)
+	require.NoError(t, table.InsertRow([]string{"1", "Tim"}))
+
+	// Act: ids are integers, so the filter value "01" addresses the same key as "1".
+	_, rows, err := table.SelectRows([]string{"*"}, &Filter{Column: "id", Value: "01"})
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, [][]string{{"1", "Tim"}}, rows)
+}
+
 func TestSelectRows_whereUnknownColumn_returnsError(t *testing.T) {
 	// Arrange
 	table := newUsersTable(t)
@@ -282,7 +376,64 @@ func TestSelectRows_whereUnknownColumn_returnsError(t *testing.T) {
 	// Assert
 	assert.Nil(t, columns)
 	assert.Nil(t, rows)
-	assert.EqualError(t, err, `Column 'age' does not exist in table 'users'.`)
+	assert.EqualError(t, err, `column 'age' does not exist in table 'users'`)
+}
+
+func TestSelectRows_whereIDNonNumericFilter_returnsHeadersAndNoRows(t *testing.T) {
+	// Arrange
+	table := newUsersTable(t)
+
+	// Act
+	columns, rows, err := table.SelectRows([]string{"id"}, &Filter{Column: "id", Value: "abc"})
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, []string{"id"}, columns)
+	assert.Empty(t, rows)
+}
+
+func TestSelectRows_whereName_indexPresent_usesScan(t *testing.T) {
+	// Arrange
+	table := newUsersTable(t)
+
+	// Act: a non-id filter must stay on the scan path even when an index exists.
+	columns, rows, err := table.SelectRows([]string{"name"}, &Filter{Column: "name", Value: "Sarah"})
+
+	// Assert
+	require.NoError(t, err)
+	assert.Equal(t, []string{"name"}, columns)
+	assert.Equal(t, [][]string{{"Sarah"}}, rows)
+}
+
+func TestSelectRows_whereID_afterManyInserts_stillCorrect(t *testing.T) {
+	// Arrange: enough rows to force several Rows backing-array reallocations,
+	// which would invalidate stored pointers but not offsets.
+	catalog := newCatalog()
+	table, err := catalog.CreateTable("users", []string{"id", "name"})
+	require.NoError(t, err)
+	for i := 1; i <= 150; i++ {
+		require.NoError(t, table.InsertRow([]string{strconv.Itoa(i), "user-" + strconv.Itoa(i)}))
+	}
+
+	// Act & Assert
+	for _, id := range []string{"1", "57", "150"} {
+		_, rows, selectErr := table.SelectRows([]string{"id", "name"}, &Filter{Column: "id", Value: id})
+		require.NoError(t, selectErr)
+		assert.Equal(t, [][]string{{id, "user-" + id}}, rows)
+	}
+}
+
+func TestSelectRows_tableWithoutIDColumn_whereID_returnsError(t *testing.T) {
+	// Arrange
+	catalog := newCatalog()
+	table, err := catalog.CreateTable("logs", []string{"message"})
+	require.NoError(t, err)
+
+	// Act
+	_, _, err = table.SelectRows([]string{"message"}, &Filter{Column: "id", Value: "1"})
+
+	// Assert
+	assert.EqualError(t, err, `column 'id' does not exist in table 'logs'`)
 }
 
 func TestCatalogSelectRows_existingTable_returnsRows(t *testing.T) {
