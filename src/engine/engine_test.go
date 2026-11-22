@@ -226,6 +226,60 @@ func TestProcess_insertValueCountMismatch_returnsErrorAndAddsNoRow(t *testing.T)
 	assert.Empty(t, rows)
 }
 
+func TestProcess_insertNonNumericID_returnsError(t *testing.T) {
+	// Arrange
+	resetCatalog(t)
+	createUsersTable(t)
+
+	// Act
+	err := Process("insert into users values ('abc', 'Tim')")
+
+	// Assert
+	assert.ErrorContains(t, err, "id must be an integer")
+	_, rows, selectErr := catalog.SelectRows("users", []string{"id", "name"}, nil)
+	require.NoError(t, selectErr)
+	assert.Empty(t, rows)
+}
+
+func TestProcess_insertDuplicateID_thenSelectWhere_returnsNewestRow(t *testing.T) {
+	// Arrange
+	resetCatalog(t)
+	createUsersTable(t)
+	require.NoError(t, Process("insert into users values ('1', 'Tim')"))
+	require.NoError(t, Process("insert into users values ('1', 'Sarah')"))
+
+	// Act
+	var processErr error
+	pointOutput := captureStdout(t, func() {
+		processErr = Process("select * from users where id = 1")
+	})
+	require.NoError(t, processErr)
+	allOutput := captureStdout(t, func() {
+		require.NoError(t, Process("select * from users"))
+	})
+
+	// Assert: the point lookup finds the newest row; the unfiltered scan sees both.
+	assert.Equal(t, "id   | name\n-----+-------\n1    | Sarah\n", pointOutput)
+	assert.Equal(t, "id   | name\n-----+-------\n1    | Tim\n1    | Sarah\n", allOutput)
+}
+
+func TestProcess_selectWhereIDQuotedNonNumeric_printsHeadersOnly(t *testing.T) {
+	// Arrange
+	resetCatalog(t)
+	createUsersTable(t)
+	require.NoError(t, catalog.InsertRows("users", []string{"1", "Tim"}))
+
+	// Act
+	var processErr error
+	output := captureStdout(t, func() {
+		processErr = Process("select * from users where id = 'abc'")
+	})
+
+	// Assert
+	require.NoError(t, processErr)
+	assert.Equal(t, "id   | name\n-----+------\n", output)
+}
+
 func TestProcess_invalidSyntax_returnsError(t *testing.T) {
 	// Arrange
 	resetCatalog(t)

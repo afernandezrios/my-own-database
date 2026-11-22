@@ -1,10 +1,10 @@
-// Command loadtest measures the baseline performance of the database with no
-// indexes: INSERTs through the SQL engine and point SELECTs that scan the
-// table row by row.
+// Command loadtest measures the end-to-end performance of the database: INSERTs
+// and point SELECTs through the real SQL engine pipeline. Tables with an "id"
+// column carry an in-memory B-tree index, so point lookups avoid full scans.
 //
-// Run it from this directory:
+// Run it from the repository root:
 //
-//	go run .
+//	go -C indexing run .
 package main
 
 import (
@@ -129,7 +129,7 @@ func printResults(out io.Writer, results []result) {
 
 	separator := buildSeparator(widths)
 
-	fmt.Fprintln(out, "Baseline load test (no indexing)")
+	fmt.Fprintln(out, "Load test results")
 	fmt.Fprintln(out)
 	fmt.Fprintln(out, separator)
 	fmt.Fprintln(out, buildRow(headers, widths, rightAligned))
