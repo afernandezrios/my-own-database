@@ -1,4 +1,4 @@
-# my-own-database
+# LearningDB
 
 A small SQL database written in Go. Every command goes through this pipeline:
 
